@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %} Записи автора {{author.username}} {% endblock %} 
+{% block header %}   {% endblock %} 
+{% block content %}
+{% load thumbnail %}
+
+<main role="main" class="container">
+  {% include "info_block_left.html" with author=author %}
+     <div class="col-md-9">
+        <!-- Пост -->  
+        {% include "incl_post_block.html" with post=post%}
+        {% include "comments.html" %}    
+     </div> 
+</main>
+
+{% endblock %}

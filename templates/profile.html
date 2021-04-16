@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %} Записи автора {{author.username}} {% endblock %}
+{% block header %} {% endblock %} 
+{% block content %}
+
+<main role="main" class="container">
+{% include "info_block_left.html" with author=author is_following=is_following%}
+      <div class="col-md-9">                
+        {% for post in page %} 
+          {% include "incl_post_block.html" with post=post %}
+        {% if not forloop.last %}<hr>{% endif %}
+        {% endfor %} 
+        {% include "paginator.html" %}
+     </div>
+    
+</main>
+
+
+{% endblock %}
