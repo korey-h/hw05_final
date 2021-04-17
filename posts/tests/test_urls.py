@@ -3,7 +3,6 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from http import HTTPStatus
 from posts.models import Group, Post, User
-import time
 
 
 class AccessURLTests(TestCase):
@@ -135,14 +134,9 @@ class AccessURLTests(TestCase):
         )
 
     def test_index_page_saved_in_cache(self):  # требует доработки!
-        print(locmem._caches.get('').keys())
         self.authorized_client.get(reverse('index'), data={'page': 1})
-        # print(locmem._caches[''].values())
-        # self.authorized_client.get(reverse('index'), data={'page': 1})
-        # print(locmem._caches[''].values())
-
         keys2 = []
         for item in locmem._caches[''].keys():
             if 'index_page' in item:
                 keys2.append(item)
-        self.assertNotEqual(0, len(keys2))
+        self.assertNotEqual(0, len(keys2), 'страница не попала в кэш')

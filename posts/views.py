@@ -46,7 +46,7 @@ def profile(request, username):
     page_number = request.GET.get('page')
     page = paginator.get_page(page_number)
     is_following = False
-    if author != request.user:
+    if author != request.user and request.user.is_authenticated:
         if author.following.filter(user=request.user):
             is_following = True
 
@@ -63,7 +63,7 @@ def post_view(request, username, post_id):
     comments = post.comments.all()
     form = CommentForm()
     is_following = False
-    if author != request.user:
+    if author != request.user and request.user.is_authenticated:
         if author.following.filter(user=request.user):
             is_following = True
 
