@@ -21,8 +21,8 @@ from django.conf.urls.static import static
 import posts
 
 
-handler404 = "posts.views.page_not_found" #  noqa
-handler500 = "posts.views.server_error" #  noqa
+handler404 = "posts.views.page_not_found"  # noqa
+handler500 = "posts.views.server_error"  # noqa
 
 urlpatterns = [
     path("", include("posts.urls")),
