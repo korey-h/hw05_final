@@ -89,7 +89,8 @@ def post_edit(request, username, post_id):
     form = PostForm(request.POST or None,
                     files=request.FILES or None,
                     instance=post)
-    return render(request, 'new_post.html', {'form': form, 'is_edit': True})
+    return render(request, 'new_post.html',
+                  {'form': form, 'post': post, 'is_edit': True})
 
 
 def page_not_found(request, exception=None):
