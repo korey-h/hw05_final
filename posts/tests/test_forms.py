@@ -1,6 +1,6 @@
 from django.test import Client, TestCase
 from django.urls import reverse
-from posts.models import Group, Post, User
+from posts.models import Group, Follow, Post, User
 
 
 class PostCreateFormTests(TestCase):
@@ -113,3 +113,51 @@ class PostCreateFormTests(TestCase):
             amount_after,
             'В базе нежданное прибавление постов'
         )
+
+    def test_follow_and_unfollow(self):
+        """Проверка, что авторизованный пользователь
+        может подписываться и отписываться от автора"""
+
+        follower_user = User.objects.create_user(username='follower')
+        authorized_client = Client()
+        authorized_client.force_login(follower_user)
+        amount_nofollow = Follow.objects.count()
+        authorized_client.get(
+            reverse('profile_follow',
+                    kwargs={'username': PostCreateFormTests.user.username})
+        )
+        amount_follow = Follow.objects.count()
+        self.assertEqual(amount_nofollow + 1, amount_follow,
+                         "Подписка не сохранилась в базе")
+        authorized_client.get(
+            reverse('profile_unfollow',
+                    kwargs={'username': PostCreateFormTests.user.username})
+        )
+        amount_unfollow = Follow.objects.count()
+        self.assertEqual(amount_unfollow, amount_nofollow,
+                         "Подписка не удалилась из базы")
+
+    def test_post_pass_on_follower_page(self):
+        """Проверка, что пост автора появляется
+            только на странице у его подписчика"""
+
+        author_post = Post.objects.create(
+            text='авторская запись',
+            author=PostCreateFormTests.user
+        )
+        follower_user = User.objects.create_user(username='follower')
+        nofollower_user = User.objects.create_user(username='hater')
+        authorized_client = Client()
+        authorized_client.force_login(follower_user)
+        authorized_client.get(
+            reverse('profile_follow',
+                    kwargs={'username': PostCreateFormTests.user.username})
+        )
+        response = authorized_client.get(reverse('follow_index'))
+        follower_post = response.context.get('page')[0]
+        self.assertEqual(follower_post, author_post)
+
+        authorized_client.force_login(nofollower_user)
+        response = authorized_client.get(reverse('follow_index'))
+        unfollower_posts = response.context.get('page')
+        self.assertEqual(len(unfollower_posts), 0)

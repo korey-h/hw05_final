@@ -3,19 +3,23 @@
 {% block header %}Последние обновления на сайте{% endblock %}
 {% block content %}
 {% load thumbnail %}
+<div class="container"></div>
+  {% include "menu.html" with index=True %}
   {% load cache %}
-  {% cache 2 index_page page.number %}
+  {% cache 2 index_page page.number request.path %}
+    
     {% for post in page %}
-    {% thumbnail post.image "480x120" crop="center" upscale=true as im %}
-      <img class="card-img" src="{{ im.url }}">
-    {% endthumbnail %}
-    <h3>
-        Автор: {{ post.author.get_full_name }}, Дата публикации: {{ post.pub_date|date:"d M Y" }}
-    </h3>
-    <p>{{ post.text|linebreaksbr }}</p>
-    {% if not forloop.last %}<hr>{% endif %}
+      <h3>
+          Автор: {{ post.author.get_full_name }}, Дата публикации: {{ post.pub_date|date:"d M Y" }}
+      </h3>
+      {% thumbnail post.image "480x120" crop="center" upscale=true as im %}
+        <img class="card-img" src="{{ im.url }}">
+      {% endthumbnail %}    
+       <p>{{ post.text|linebreaksbr }}</p>
+      {% if not forloop.last %}<hr>{% endif %}
     {% endfor %}
 
     {% include "paginator.html" %}
   {% endcache %}
+</div>  
 {% endblock %}
