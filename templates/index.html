@@ -4,7 +4,7 @@
 {% block content %}
 {% load thumbnail %}
 <div class="container"></div>
-  {% include "menu.html" with index=True %}
+  {% include "includes/menu.html" with index=True %}
   {% load cache %}
   {% cache 2 index_page page.number request.path %}
     
@@ -19,7 +19,7 @@
       {% if not forloop.last %}<hr>{% endif %}
     {% endfor %}
 
-    {% include "paginator.html" %}
+    {% include "includes/paginator.html" %}
   {% endcache %}
 </div>  
 {% endblock %}

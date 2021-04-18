@@ -1,12 +1,12 @@
-from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django.shortcuts import get_object_or_404
-from django.shortcuts import redirect, render
 from http import HTTPStatus
 
-from .forms import CommentForm, PostForm
-from .models import Group, Follow, Post, User
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.shortcuts import get_object_or_404, redirect, render
 from yatube.settings import POSTS_ON_PAGE
+
+from .forms import CommentForm, PostForm
+from .models import Follow, Group, Post, User
 
 
 def index(request):
@@ -29,13 +29,13 @@ def group_posts(request, slug):
 @login_required
 def new_post(request):
     form = PostForm()
-    if request.method == 'POST':
-        form = PostForm(request.POST, request.FILES)
-        if form.is_valid():
-            new = form.save(commit=False)
-            new.author = request.user
-            new.save()
-            return redirect('index')
+    form = PostForm(request.POST or None,
+                    files=request.FILES or None,)
+    if form.is_valid():
+        new = form.save(commit=False)
+        new.author = request.user
+        new.save()
+        return redirect('index')
     return render(request, 'new_post.html', {'form': form, 'is_edit': False})
 
 
@@ -46,14 +46,14 @@ def profile(request, username):
     page_number = request.GET.get('page')
     page = paginator.get_page(page_number)
     is_following = False
-    if author != request.user and request.user.is_authenticated:
-        if author.following.filter(user=request.user):
-            is_following = True
+    if request.user.is_authenticated:
+        is_following = author.following.filter(user=request.user).exists()
 
     return render(
         request,
         'profile.html',
-        {'page': page, 'author': author, 'is_following': is_following}
+        {'page': page, 'author': author, 'is_following': is_following,
+         'is_follow_buttons': True}
     )
 
 
@@ -64,8 +64,7 @@ def post_view(request, username, post_id):
     form = CommentForm()
     is_following = False
     if author != request.user and request.user.is_authenticated:
-        if author.following.filter(user=request.user):
-            is_following = True
+        is_following = author.following.filter(user=request.user).exists()
 
     return render(
         request,
@@ -80,15 +79,13 @@ def post_edit(request, username, post_id):
     if username != request.user.username:
         return redirect('post', username=username, post_id=post_id)
     post = get_object_or_404(Post, author__username=username, id=post_id)
-    if request.method == 'POST':
-        form = PostForm(request.POST, request.FILES, instance=post)
-        if form.is_valid():
-            post.save()
-            return redirect('post', username=username, post_id=post_id)
-
     form = PostForm(request.POST or None,
                     files=request.FILES or None,
                     instance=post)
+    if form.is_valid():
+        post.save()
+        return redirect('post', username=username, post_id=post_id)
+
     return render(request, 'new_post.html',
                   {'form': form, 'post': post, 'is_edit': True})
 
@@ -138,10 +135,9 @@ def follow_index(request):
 def profile_follow(request, username):
     author = get_object_or_404(User, username=username)
     user = request.user
-    if author != user:
-        if not author.following.filter(user=request.user):
-            follower = Follow.objects.create(author=author, user=user)
-            follower.save()
+    is_follower = author.following.filter(user=request.user).exists()
+    if user != author and not is_follower:
+        Follow.objects.create(author=author, user=user)
 
     return redirect("profile", username=username)
 
@@ -150,9 +146,8 @@ def profile_follow(request, username):
 def profile_unfollow(request, username):
     author = get_object_or_404(User, username=username)
     user = request.user
-    if author != user:
-        if author.following.filter(user=request.user):
-            follower = Follow.objects.filter(author=author, user=user)
-            follower.delete()
+    follower = Follow.objects.filter(author=author, user=user)
+    if follower.exists():
+        follower.delete()
 
     return redirect("profile", username=username)

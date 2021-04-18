@@ -25,7 +25,7 @@
                                     </div>
                             </li>
                     </ul>
-
+                    {%if is_follow_buttons %}
                     {%if author != user%}
                     <li class="list-group-item">
                         {% if is_following %}
@@ -40,6 +40,7 @@
                         </a>
                         {% endif %}                        
                     </li>
+                    {% endif %}
                     {% endif %}
 
 

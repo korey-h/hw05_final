@@ -1,9 +1,10 @@
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
-from posts.models import Group, Follow, Post, User
+from posts.models import Group, Post, User
 
 
-class PostCreateFormTests(TestCase):
+class CreateFromFormTests(TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -16,7 +17,7 @@ class PostCreateFormTests(TestCase):
 
         cls.user = User.objects.create_user(username='user1')
         cls.authorized_client = Client()
-        cls.authorized_client.force_login(PostCreateFormTests.user)
+        cls.authorized_client.force_login(CreateFromFormTests.user)
 
     def test_post_create_fr_web_form(self):
         """Проверка, что данные их формы создания поста
@@ -25,7 +26,7 @@ class PostCreateFormTests(TestCase):
         post_amount = Post.objects.count()
         test_post = {
             'text': 'отредактированный',
-            'group': PostCreateFormTests.group.id}
+            'group': CreateFromFormTests.group.id}
 
         self.authorized_client.post(
             reverse('new_post'),
@@ -48,12 +49,12 @@ class PostCreateFormTests(TestCase):
 
         self.assertEqual(
             post.group,
-            PostCreateFormTests.group,
+            CreateFromFormTests.group,
             'Пост сохранился с неправильной группой'
         )
         self.assertEqual(
             post.author,
-            PostCreateFormTests.user,
+            CreateFromFormTests.user,
             'Пост сохранился с неправильным автором'
         )
 
@@ -106,7 +107,7 @@ class PostCreateFormTests(TestCase):
         amount_after = Post.objects.count()
         self.assertRedirects(
             responce,
-            f'/auth/login/?next={reverse("new_post")}'
+            f'{reverse("login")}?next={reverse("new_post")}'
         )
         self.assertEqual(
             amount_before,
@@ -114,50 +115,31 @@ class PostCreateFormTests(TestCase):
             'В базе нежданное прибавление постов'
         )
 
-    def test_follow_and_unfollow(self):
-        """Проверка, что авторизованный пользователь
-        может подписываться и отписываться от автора"""
-
-        follower_user = User.objects.create_user(username='follower')
-        authorized_client = Client()
-        authorized_client.force_login(follower_user)
-        amount_nofollow = Follow.objects.count()
-        authorized_client.get(
-            reverse('profile_follow',
-                    kwargs={'username': PostCreateFormTests.user.username})
+    def test_image_saved_f_form(self):
+        test_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x02\x00'
+            b'\x01\x00\x80\x00\x00\x00\x00\x00'
+            b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
+            b'\x00\x00\x00\x2C\x00\x00\x00\x00'
+            b'\x02\x00\x01\x00\x00\x02\x02\x0C'
+            b'\x0A\x00\x3B'
         )
-        amount_follow = Follow.objects.count()
-        self.assertEqual(amount_nofollow + 1, amount_follow,
-                         "Подписка не сохранилась в базе")
-        authorized_client.get(
-            reverse('profile_unfollow',
-                    kwargs={'username': PostCreateFormTests.user.username})
+        uploaded = SimpleUploadedFile(
+            name='test.gif',
+            content=test_gif,
+            content_type='image/gif'
         )
-        amount_unfollow = Follow.objects.count()
-        self.assertEqual(amount_unfollow, amount_nofollow,
-                         "Подписка не удалилась из базы")
-
-    def test_post_pass_on_follower_page(self):
-        """Проверка, что пост автора появляется
-            только на странице у его подписчика"""
-
-        author_post = Post.objects.create(
-            text='авторская запись',
-            author=PostCreateFormTests.user
+        form_data = {
+            'group': self.group.id,
+            'text': 'особая запись',
+            'image': uploaded,
+        }
+        self.authorized_client.post(
+            reverse('new_post'),
+            data=form_data,
+            follow=True
         )
-        follower_user = User.objects.create_user(username='follower')
-        nofollower_user = User.objects.create_user(username='hater')
-        authorized_client = Client()
-        authorized_client.force_login(follower_user)
-        authorized_client.get(
-            reverse('profile_follow',
-                    kwargs={'username': PostCreateFormTests.user.username})
-        )
-        response = authorized_client.get(reverse('follow_index'))
-        follower_post = response.context.get('page')[0]
-        self.assertEqual(follower_post, author_post)
 
-        authorized_client.force_login(nofollower_user)
-        response = authorized_client.get(reverse('follow_index'))
-        unfollower_posts = response.context.get('page')
-        self.assertEqual(len(unfollower_posts), 0)
+        post = Post.objects.get(text=form_data['text'])
+        im_direct = post._meta.get_field('image').upload_to + uploaded.name
+        self.assertEqual(post.image, im_direct, 'Изображение не сохранилось')

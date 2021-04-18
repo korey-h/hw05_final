@@ -1,8 +1,8 @@
-from django.core.cache.backends import locmem
+from http import HTTPStatus
+
 from django.test import Client, TestCase
 from django.urls import reverse
-from http import HTTPStatus
-from posts.models import Comment, Group, Post, User
+from posts.models import Group, Post, User
 
 
 class AccessURLTests(TestCase):
@@ -132,26 +132,3 @@ class AccessURLTests(TestCase):
             HTTPStatus.NOT_FOUND,
             f'не выводится страница об ошибке 404 для {url}'
         )
-
-    def test_index_page_saved_in_cache(self):  # требует доработки!
-        self.authorized_client.get(reverse('index'), data={'page': 1})
-        keys2 = []
-        for item in locmem._caches[''].keys():
-            if 'index_page' in item:
-                keys2.append(item)
-        self.assertNotEqual(0, len(keys2), 'страница не попала в кэш')
-
-    def test_noauth_not_able_comments(self):
-        data = {'text': 'тестовый комментарий'}
-        url = reverse(
-            'add_comment',
-            kwargs={'username': AccessURLTests.user.username,
-                    'post_id': AccessURLTests.post.id}
-        )
-        amount_before = Comment.objects.all().count()
-        self.guest_client.post(url, data, follow=True)
-        amount_after = Comment.objects.all().count()
-        self.assertEqual(
-            amount_before,
-            amount_after,
-            'Неавторизованный пользователь смог добавить комментарий')
