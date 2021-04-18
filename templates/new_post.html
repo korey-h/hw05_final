@@ -22,7 +22,7 @@
                 {% endfor %}
 
 
-                <form method="post" enctype="multipart/form-data">
+                <form method="post" enctype="multipart/form-data" action="{{ request.path }}">
                     {% csrf_token %}
 
                     {% for field in form %}
