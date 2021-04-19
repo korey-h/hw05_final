@@ -1,7 +1,11 @@
+import shutil
+import tempfile
+
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
-from posts.models import Group, Post, User
+from posts.models import Comment, Group, Post, User
 
 
 class CreateFromFormTests(TestCase):
@@ -9,6 +13,7 @@ class CreateFromFormTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        settings.MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
         cls.group = Group.objects.create(
             title='Обо всём',
             slug='obo_vsem',
@@ -18,45 +23,57 @@ class CreateFromFormTests(TestCase):
         cls.user = User.objects.create_user(username='user1')
         cls.authorized_client = Client()
         cls.authorized_client.force_login(CreateFromFormTests.user)
+        cls.post_base = Post.objects.create(
+            text='постоянное сообщение',
+            author=cls.user,
+        )
+        cls.guest_client = Client()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(settings.MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
 
     def test_post_create_fr_web_form(self):
-        """Проверка, что данные их формы создания поста
+        """Проверка, что данные из формы создания поста
         сохраняются в базе данных"""
 
-        post_amount = Post.objects.count()
+        test_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x02\x00'
+            b'\x01\x00\x80\x00\x00\x00\x00\x00'
+            b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
+            b'\x00\x00\x00\x2C\x00\x00\x00\x00'
+            b'\x02\x00\x01\x00\x00\x02\x02\x0C'
+            b'\x0A\x00\x3B'
+        )
+        uploaded = SimpleUploadedFile(
+            name='test.gif',
+            content=test_gif,
+            content_type='image/gif'
+        )
+        im_direct = Post._meta.get_field('image').upload_to + uploaded.name
         test_post = {
             'text': 'отредактированный',
-            'group': CreateFromFormTests.group.id}
+            'group': CreateFromFormTests.group.id,
+            'image': uploaded}
 
+        post_amount = Post.objects.count()
         self.authorized_client.post(
             reverse('new_post'),
             data=test_post,
             follow=True
         )
+        post = Post.objects.latest('pub_date')
 
-        self.assertEqual(
-            Post.objects.count(),
-            post_amount + 1,
-            'Пост не попал в базу данных'
-        )
-
-        post = Post.objects.last()
-        self.assertEqual(
-            post.text,
-            test_post['text'],
-            'Пост сохранился с неправильным текстом'
-        )
-
-        self.assertEqual(
-            post.group,
-            CreateFromFormTests.group,
-            'Пост сохранился с неправильной группой'
-        )
-        self.assertEqual(
-            post.author,
-            CreateFromFormTests.user,
-            'Пост сохранился с неправильным автором'
-        )
+        self.assertEqual(Post.objects.count(), post_amount + 1,
+                         'Пост не попал в базу данных')
+        self.assertEqual(post.text, test_post['text'],
+                         'Пост сохранился с неправильным текстом')
+        self.assertEqual(post.group, CreateFromFormTests.group,
+                         'Пост сохранился с неправильной группой')
+        self.assertEqual(post.author, CreateFromFormTests.user,
+                         'Пост сохранился с неправильным автором')
+        self.assertEqual(post.image, im_direct, 'Изображение не сохранилось')
 
     def test_post_edit_fr_web_form(self):
         """Проверка, что данные из формы
@@ -83,7 +100,7 @@ class CreateFromFormTests(TestCase):
             data=test_data,
             follow=True
         )
-        redacted_post = Post.objects.last()
+        redacted_post = Post.objects.latest('pub_date')
         self.assertEqual(
             test_data['text'],
             redacted_post.text,
@@ -115,31 +132,32 @@ class CreateFromFormTests(TestCase):
             'В базе нежданное прибавление постов'
         )
 
-    def test_image_saved_f_form(self):
-        test_gif = (
-            b'\x47\x49\x46\x38\x39\x61\x02\x00'
-            b'\x01\x00\x80\x00\x00\x00\x00\x00'
-            b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
-            b'\x00\x00\x00\x2C\x00\x00\x00\x00'
-            b'\x02\x00\x01\x00\x00\x02\x02\x0C'
-            b'\x0A\x00\x3B'
+    def test_create_comment_f_form(self):
+        data = {'text': 'юзверский комментарий'}
+        url = reverse(
+            'add_comment',
+            kwargs={'username': CreateFromFormTests.user.username,
+                    'post_id': CreateFromFormTests.post_base.id}
         )
-        uploaded = SimpleUploadedFile(
-            name='test.gif',
-            content=test_gif,
-            content_type='image/gif'
-        )
-        form_data = {
-            'group': self.group.id,
-            'text': 'особая запись',
-            'image': uploaded,
-        }
-        self.authorized_client.post(
-            reverse('new_post'),
-            data=form_data,
-            follow=True
-        )
+        amount_before = Comment.objects.all().count()
+        CreateFromFormTests.authorized_client.post(url, data, follow=True)
+        amount_after = Comment.objects.all().count()
+        self.assertEqual(amount_before + 1, amount_after,
+                         'Комментарий не сохранился')
+        comment = Comment.objects.latest('created')
+        self.assertEqual(comment.text, data['text'])
 
-        post = Post.objects.get(text=form_data['text'])
-        im_direct = post._meta.get_field('image').upload_to + uploaded.name
-        self.assertEqual(post.image, im_direct, 'Изображение не сохранилось')
+    def test_noauth_not_able_comments(self):
+        data = {'text': 'тестовый комментарий'}
+        url = reverse(
+            'add_comment',
+            kwargs={'username': CreateFromFormTests.user.username,
+                    'post_id': CreateFromFormTests.post_base.id}
+        )
+        amount_before = Comment.objects.all().count()
+        CreateFromFormTests.guest_client.post(url, data, follow=True)
+        amount_after = Comment.objects.all().count()
+        self.assertEqual(
+            amount_before,
+            amount_after,
+            'Неавторизованный пользователь смог добавить комментарий')

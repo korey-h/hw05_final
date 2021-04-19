@@ -4,16 +4,16 @@
 {% block content %}
 
 <main role="main" class="container">
-{% include "includes/info_block_left.html" with author=author is_following=is_following%}
-      <div class="col-md-9">                
+  <div class="row">        
+    {% include "includes/info_block_left.html" with author=author is_following=is_following is_follow_buttons=True%}
+     <div class="col-md-9">
         {% for post in page %} 
           {% include "includes/incl_post_block.html" with post=post %}
         {% if not forloop.last %}<hr>{% endif %}
-        {% endfor %} 
+        {% endfor %}
         {% include "includes/paginator.html" %}
-     </div>
-    
+    </div>
+  </div>     
 </main>
-
 
 {% endblock %}

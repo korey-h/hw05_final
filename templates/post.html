@@ -5,12 +5,14 @@
 {% load thumbnail %}
 
 <main role="main" class="container">
-  {% include "includes/info_block_left.html" with author=author %}
-     <div class="col-md-9">
-        <!-- Пост -->  
-        {% include "includes/incl_post_block.html" with post=post%}
-        {% include "includes/comments.html" %}    
-     </div> 
+  <div class="row"> 
+    {% include "includes/info_block_left.html" with author=author %}
+    <div class="col-md-9">
+      <!-- Пост -->
+      {% include "includes/incl_post_block.html" with post=post%}
+      {% include "includes/comments.html" %}
+     </div>     
+  </div> 
 </main>
 
 {% endblock %}

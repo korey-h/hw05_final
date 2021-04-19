@@ -3,10 +3,11 @@ import tempfile
 
 from django import forms
 from django.conf import settings
+from django.core.cache.backends import locmem
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
-from posts.models import Comment, Follow, Group, Post, User
+from posts.models import Follow, Group, Post, User
 from yatube.settings import POSTS_ON_PAGE
 
 
@@ -167,28 +168,22 @@ class PageTemplateTests(TestCase):
                 self.compare_w_base(response.context)
 
     def test_index_page_saved_in_cache(self):
-        response = self.authorized_client.get(reverse('index'))
-        posts_before = response.context.get('page')
-        Post.objects.create(text='new запись', author=PageTemplateTests.user)
-        response = self.authorized_client.get(reverse('index'))
-        posts_after = response.context.get('page')
+        """Проверка кэширования страниц"""
+
+        url = reverse('index')
+        response = self.authorized_client.get(url)
+        posts_before = response.context.get('page').object_list
+        new = Post.objects.create(text='new запись',
+                                  author=PageTemplateTests.user)
+        response = self.authorized_client.get(url)
+        posts_after = response.context.get('page').object_list
         self.assertEqual(posts_before[0], posts_after[0],
                          'страница не сохраняется в кэш')
-
-    def test_noauth_not_able_comments(self):
-        data = {'text': 'тестовый комментарий'}
-        url = reverse(
-            'add_comment',
-            kwargs={'username': PageTemplateTests.user.username,
-                    'post_id': PageTemplateTests.post_base.id}
-        )
-        amount_before = Comment.objects.all().count()
-        self.guest_client.post(url, data, follow=True)
-        amount_after = Comment.objects.all().count()
-        self.assertEqual(
-            amount_before,
-            amount_after,
-            'Неавторизованный пользователь смог добавить комментарий')
+        locmem._caches.clear()
+        response = self.authorized_client.get(url)
+        posts_update = response.context.get('page').object_list
+        self.assertEqual(new, posts_update[0],
+                         'страница не обновилась')
 
     def test_post_pass_on_follower_page(self):
         """Проверка, что пост автора появляется
@@ -227,8 +222,11 @@ class PageTemplateTests(TestCase):
             reverse('profile_follow',
                     kwargs={'username': PageTemplateTests.user.username})
         )
-        response = authorized_client.get(reverse('follow_index'))
-        self.compare_w_base(response.context)
+        following = Follow.objects.filter(author=PageTemplateTests.user).last()
+        self.assertEqual(follower_user, following.user,
+                         'в базу сохранился неправильный подписчик')
+        self.assertEqual(PageTemplateTests.user, following.author,
+                         'в базу сохранился неправильный автор')
 
     def test_make_unfollow(self):
         follower_user = User.objects.create_user(username='follower')
@@ -242,8 +240,8 @@ class PageTemplateTests(TestCase):
                     kwargs={'username': PageTemplateTests.user.username})
         )
         amount_after = Follow.objects.count()
-        self.assertNotEqual(amount_before, amount_after,
-                            "Подписка не удалилась из базы")
+        self.assertEqual(amount_after, amount_before - 1,
+                         "Подписка не удалилась из базы")
 
 
 class PaginatorViewsTest(TestCase):

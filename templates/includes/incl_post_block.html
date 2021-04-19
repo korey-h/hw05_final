@@ -12,6 +12,8 @@
             </p>
             <div class="d-flex justify-content-between align-items-center">
                 <div class="btn-group ">
+                    <div class="btn btn-sm text-muted">Комментариев: {{post.comments.count}}</div>
+                    
                     <!-- Ссылка на страницу записи в атрибуте href--> 
                     <a class="btn btn-sm text-muted" href="{% url 'post' username=post.author.username post_id=post.id %}" role="button">Добавить комментарий</a>                        
                     {% if post.author == user %}

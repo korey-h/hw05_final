@@ -28,7 +28,6 @@ def group_posts(request, slug):
 
 @login_required
 def new_post(request):
-    form = PostForm()
     form = PostForm(request.POST or None,
                     files=request.FILES or None,)
     if form.is_valid():
@@ -52,8 +51,7 @@ def profile(request, username):
     return render(
         request,
         'profile.html',
-        {'page': page, 'author': author, 'is_following': is_following,
-         'is_follow_buttons': True}
+        {'page': page, 'author': author, 'is_following': is_following, }
     )
 
 
@@ -76,9 +74,9 @@ def post_view(request, username, post_id):
 
 @login_required
 def post_edit(request, username, post_id):
-    if username != request.user.username:
-        return redirect('post', username=username, post_id=post_id)
     post = get_object_or_404(Post, author__username=username, id=post_id)
+    if post.author != request.user:
+        return redirect('post', username=username, post_id=post_id)
     form = PostForm(request.POST or None,
                     files=request.FILES or None,
                     instance=post)
@@ -110,14 +108,12 @@ def server_error(request):
 @login_required
 def add_comment(request, username, post_id):
     post = get_object_or_404(Post, author__username=username, id=post_id)
-    if request.method == "POST":
-        form = CommentForm(request.POST)
-        if form.is_valid():
-            new = form.save(commit=False)
-            new.author = request.user
-            new.post = post
-            new.save()
-            return redirect("post", username=username, post_id=post_id)
+    form = CommentForm(request.POST or None)
+    if form.is_valid():
+        new = form.save(commit=False)
+        new.author = request.user
+        new.post = post
+        new.save()
     return redirect("post", username=username, post_id=post_id)
 
 
