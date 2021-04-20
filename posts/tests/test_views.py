@@ -3,7 +3,7 @@ import tempfile
 
 from django import forms
 from django.conf import settings
-from django.core.cache.backends import locmem
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -179,7 +179,7 @@ class PageTemplateTests(TestCase):
         posts_after = response.context.get('page').object_list
         self.assertEqual(posts_before[0], posts_after[0],
                          'страница не сохраняется в кэш')
-        locmem._caches.clear()
+        cache.clear()
         response = self.authorized_client.get(url)
         posts_update = response.context.get('page').object_list
         self.assertEqual(new, posts_update[0],
@@ -222,7 +222,7 @@ class PageTemplateTests(TestCase):
             reverse('profile_follow',
                     kwargs={'username': PageTemplateTests.user.username})
         )
-        following = Follow.objects.filter(author=PageTemplateTests.user).last()
+        following = Follow.objects.first()
         self.assertEqual(follower_user, following.user,
                          'в базу сохранился неправильный подписчик')
         self.assertEqual(PageTemplateTests.user, following.author,

@@ -51,7 +51,6 @@ class CreateFromFormTests(TestCase):
             content=test_gif,
             content_type='image/gif'
         )
-        im_direct = Post._meta.get_field('image').upload_to + uploaded.name
         test_post = {
             'text': 'отредактированный',
             'group': CreateFromFormTests.group.id,
@@ -63,7 +62,7 @@ class CreateFromFormTests(TestCase):
             data=test_post,
             follow=True
         )
-        post = Post.objects.latest('pub_date')
+        post = Post.objects.first()
 
         self.assertEqual(Post.objects.count(), post_amount + 1,
                          'Пост не попал в базу данных')
@@ -73,7 +72,8 @@ class CreateFromFormTests(TestCase):
                          'Пост сохранился с неправильной группой')
         self.assertEqual(post.author, CreateFromFormTests.user,
                          'Пост сохранился с неправильным автором')
-        self.assertEqual(post.image, im_direct, 'Изображение не сохранилось')
+        self.assertIn(uploaded.name, str(post.image),
+                      'Изображение не сохранилось')
 
     def test_post_edit_fr_web_form(self):
         """Проверка, что данные из формы
@@ -100,7 +100,7 @@ class CreateFromFormTests(TestCase):
             data=test_data,
             follow=True
         )
-        redacted_post = Post.objects.latest('pub_date')
+        redacted_post = Post.objects.first()
         self.assertEqual(
             test_data['text'],
             redacted_post.text,
@@ -144,8 +144,10 @@ class CreateFromFormTests(TestCase):
         amount_after = Comment.objects.all().count()
         self.assertEqual(amount_before + 1, amount_after,
                          'Комментарий не сохранился')
-        comment = Comment.objects.latest('created')
+        comment = Comment.objects.first()
         self.assertEqual(comment.text, data['text'])
+        self.assertEqual(comment.post, CreateFromFormTests.post_base)
+        self.assertEqual(comment.author, CreateFromFormTests.user)
 
     def test_noauth_not_able_comments(self):
         data = {'text': 'тестовый комментарий'}
