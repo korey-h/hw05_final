@@ -10,7 +10,7 @@
     
     {% for post in page %}
       <h3>
-          Автор: {{ post.author.get_full_name }}, Дата публикации: {{ post.pub_date|date:"d M Y" }}
+          Автор: <a href="{% url 'profile' username=post.author.username %}">{{ post.author.get_full_name }}</a>, Дата публикации: {{ post.pub_date|date:"d M Y" }}
       </h3>
       {% thumbnail post.image "480x120" crop="center" upscale=true as im %}
         <img class="card-img" src="{{ im.url }}">
